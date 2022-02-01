@@ -72,7 +72,6 @@ const util_1 = __importDefault(__nccwpck_require__(669));
 const execAsync = util_1.default.promisify(child_process_1.exec);
 // Internal paths
 const certPath = `${process_1.env['TEMP']}\\certificate.pfx`;
-const signtool = 'C:/Program Files (x86)/Windows Kits/10/bin/10.0.17763.0/x86/signtool.exe';
 // Inputs
 const coreFolder = core.getInput('folder');
 const coreRecursive = core.getInput('recursive') === 'true';
@@ -98,6 +97,35 @@ const supportedFileExt = [
     '.ps1',
     '.psm1'
 ];
+function getSigntoolLocation() {
+    return __awaiter(this, void 0, void 0, function* () {
+        const windowsKitsfolder = 'C:/Program Files (x86)/Windows Kits/10/bin/';
+        const folders = yield fs_1.promises.readdir(windowsKitsfolder);
+        let fileName = 'unable to find signtool.exe';
+        let maxVersion = 0;
+        for (const folder of folders) {
+            if (!folder.endsWith('.0')) {
+                continue;
+            }
+            const folderVersion = parseInt(folder.replace(/\./g, ''));
+            if (folderVersion > maxVersion) {
+                const signtoolFilename = `${windowsKitsfolder}${folder}/x86/signtool.exe`;
+                try {
+                    const stat = yield fs_1.promises.stat(signtoolFilename);
+                    if (stat.isFile()) {
+                        fileName = signtoolFilename;
+                        maxVersion = folderVersion;
+                    }
+                }
+                catch (err) {
+                    core.error(err);
+                }
+            }
+        }
+        core.info(`signtool location: ${fileName}`);
+        return fileName;
+    });
+}
 /**
  * Validate workflow inputs.
  *
@@ -172,7 +200,7 @@ function addCertToStore() {
  *
  * @param file File to be signed.
  */
-function trySign(file) {
+function trySign(signtool, file) {
     return __awaiter(this, void 0, void 0, function* () {
         const ext = path_1.default.extname(file);
         for (let i = 0; i < 5; i++) {
@@ -208,10 +236,11 @@ function trySign(file) {
 function signFiles() {
     var e_1, _a;
     return __awaiter(this, void 0, void 0, function* () {
+        const signtool = yield getSigntoolLocation();
         try {
             for (var _b = __asyncValues(getFiles(coreFolder, coreRecursive)), _c; _c = yield _b.next(), !_c.done;) {
                 const file = _c.value;
-                yield trySign(file);
+                yield trySign(signtool, file);
             }
         }
         catch (e_1_1) { e_1 = { error: e_1_1 }; }

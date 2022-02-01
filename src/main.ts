@@ -10,8 +10,6 @@ const execAsync = util.promisify(exec)
 
 // Internal paths
 const certPath = `${env['TEMP']}\\certificate.pfx`
-const signtool =
-	'C:/Program Files (x86)/Windows Kits/10/bin/10.0.17763.0/x86/signtool.exe'
 
 // Inputs
 const coreFolder = core.getInput('folder')
@@ -39,6 +37,35 @@ const supportedFileExt = [
 	'.ps1',
 	'.psm1'
 ]
+
+async function getSigntoolLocation(): Promise<string> {
+	const windowsKitsfolder = 'C:/Program Files (x86)/Windows Kits/10/bin/'
+	const folders = await promises.readdir(windowsKitsfolder)
+	let fileName = 'unable to find signtool.exe'
+	let maxVersion = 0
+	for (const folder of folders) {
+		if (!folder.endsWith('.0')) {
+			continue
+		}
+		const folderVersion = parseInt(folder.replace(/\./g, ''))
+		if (folderVersion > maxVersion) {
+			const signtoolFilename = `${windowsKitsfolder}${folder}/x86/signtool.exe`
+			try {
+				const stat = await promises.stat(signtoolFilename)
+				if (stat.isFile()) {
+					fileName = signtoolFilename
+					maxVersion = folderVersion
+				}
+			} catch (err) {
+				core.error(err)
+			}
+		}
+	}
+
+	core.info(`signtool location: ${fileName}`)
+
+	return fileName
+}
 
 /**
  * Validate workflow inputs.
@@ -121,7 +148,7 @@ async function addCertToStore(): Promise<boolean> {
  *
  * @param file File to be signed.
  */
-async function trySign(file: string): Promise<boolean> {
+async function trySign(signtool: string, file: string): Promise<boolean> {
 	const ext = path.extname(file)
 	for (let i = 0; i < 5; i++) {
 		await wait(i)
@@ -158,8 +185,9 @@ async function trySign(file: string): Promise<boolean> {
  *
  */
 async function signFiles(): Promise<void> {
+	const signtool = await getSigntoolLocation()
 	for await (const file of getFiles(coreFolder, coreRecursive))
-		await trySign(file)
+		await trySign(signtool, file)
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
