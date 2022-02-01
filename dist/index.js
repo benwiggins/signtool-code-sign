@@ -118,7 +118,7 @@ function getSigntoolLocation() {
                     }
                 }
                 catch (err) {
-                    core.error(err);
+                    core.debug(err);
                 }
             }
         }

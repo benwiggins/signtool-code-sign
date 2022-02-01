@@ -57,7 +57,7 @@ async function getSigntoolLocation(): Promise<string> {
 					maxVersion = folderVersion
 				}
 			} catch (err) {
-				core.error(err)
+				core.debug(err)
 			}
 		}
 	}
